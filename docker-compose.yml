@@ -83,6 +83,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        API_URL: http://api:8080
     restart: unless-stopped
     ports:
       - "8501:8501"
