@@ -207,6 +207,12 @@ uv sync                    # install all dependencies
 uv run python -c "from foreign_whispers import FWClient; print('ok')"
 ```
 
+### Colab setup
+
+See [docs/colab-setup.md](docs/colab-setup.md) for a Colab recipe that installs
+this package from GitHub, starts `chatterbox-tts-api` on port `8020`, and points
+Foreign Whispers at that TTS server.
+
 For Jupyter/VS Code notebooks, register the kernel once:
 
 ```bash
