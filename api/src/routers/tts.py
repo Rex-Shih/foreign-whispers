@@ -3,7 +3,6 @@
 import asyncio
 import functools
 import json
-import pathlib
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -29,15 +28,15 @@ async def tts_endpoint(
     config: str = Query(..., pattern=r"^c-[0-9a-f]{7}$"),
     alignment: bool = Query(False),
     speaker_wav: str = Query(None, description="Reference voice WAV path (e.g. 'es/default.wav')"),
-
 ):
     """Generate TTS audio for a translated transcript.
 
     *config* is an opaque directory name for caching.
     *alignment* enables temporal alignment (clamped stretch).
+    *speaker_wav* forces one reference voice for the whole clip. If omitted,
+    diarized transcripts use per-speaker voices when available, otherwise the
+    target-language default voice is used.
     """
-    if speaker_wav is None:
-      speaker_wav = resolve_speaker_wav(settings.speakers_dir, "es")
     trans_dir = settings.translations_dir
     audio_dir = settings.tts_audio_dir / config
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +60,14 @@ async def tts_endpoint(
         }
 
     source_path = str(trans_dir / f"{title}.json")
-    speaker_voice_map = svc.build_round_robin_voice_map(source_path, settings.speakers_dir)
+
+    speaker_voice_map = None
+    if speaker_wav is None:
+        translated = json.loads((trans_dir / f"{title}.json").read_text())
+        target_language = translated.get("language") or "es"
+        speaker_voice_map = svc.build_round_robin_voice_map(source_path, settings.speakers_dir)
+        if not speaker_voice_map:
+            speaker_wav = resolve_speaker_wav(settings.speakers_dir, target_language)
 
     await _run_in_threadpool(
         None,
@@ -69,6 +75,7 @@ async def tts_endpoint(
         source_path,
         str(audio_dir),
         alignment=alignment,
+        speaker_wav=speaker_wav,
         speaker_voice_map=speaker_voice_map,
     )
 

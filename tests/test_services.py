@@ -213,6 +213,7 @@ class TestTTSService:
                 "/src/transcript.json",
                 "/out/audio",
                 alignment=True,
+                speaker_wav="es/default.wav",
                 speaker_voice_map={"SPEAKER_00": "es/voice_1.wav"},
             )
 
@@ -221,6 +222,7 @@ class TestTTSService:
             "/out/audio",
             mock_engine,
             alignment=True,
+            speaker_wav="es/default.wav",
             speaker_voice_map={"SPEAKER_00": "es/voice_1.wav"},
         )
 

@@ -404,6 +404,7 @@ def text_file_to_speech(
     tts_engine=None,
     *,
     alignment=None,
+    speaker_wav: str | None = None,
     speaker_voice_map: dict[str, str] | None = None,
 ):
     """Read translated JSON with segment timestamps and produce a time-aligned WAV.
@@ -419,6 +420,9 @@ def text_file_to_speech(
     *alignment* overrides the module-level ``_ALIGNMENT_ENABLED`` flag.
     Pass True for aligned mode, False for baseline, or None to use the env var.
 
+    *speaker_wav* is a single Chatterbox reference WAV path to use for all
+    segments, relative to ``pipeline_data/speakers``.
+
     *speaker_voice_map* maps transcript speaker labels to Chatterbox reference
     WAV paths relative to ``pipeline_data/speakers``.
     """
@@ -433,7 +437,10 @@ def text_file_to_speech(
     if not segments:
         text = text_from_file(source_path)
         save_path = pathlib.Path(output_path) / pathlib.Path(save_name)
-        text_to_speech(text, str(save_path))
+        if speaker_wav:
+            engine.tts_to_file(text=text, file_path=str(save_path), speaker_wav=speaker_wav)
+        else:
+            engine.tts_to_file(text=text, file_path=str(save_path))
         print("success!")
         return None
 
@@ -473,7 +480,7 @@ def text_file_to_speech(
             "index": i,
             "text": seg_text,
             "speaker": seg.get("speaker"),
-            "speaker_wav": (speaker_voice_map or {}).get(seg.get("speaker")),
+            "speaker_wav": speaker_wav or (speaker_voice_map or {}).get(seg.get("speaker")),
             "start": seg["start"],
             "end": seg["end"],
             "target_sec": target_sec,

@@ -50,7 +50,14 @@ def test_tts_returns_audio_path(client, monkeypatch, ui_dir):
         lambda video_id: "Test Title",
     )
 
-    def fake_tts(source_path, output_path, tts_engine=None, alignment=False, speaker_voice_map=None):
+    def fake_tts(
+        source_path,
+        output_path,
+        tts_engine=None,
+        alignment=False,
+        speaker_wav=None,
+        speaker_voice_map=None,
+    ):
         wav = pathlib.Path(output_path) / "Test Title.wav"
         wav.write_bytes(b"RIFF" + b"\x00" * 100)
 
@@ -78,7 +85,14 @@ def test_tts_skips_if_cached(client, monkeypatch, ui_dir):
 
     tts_called = {"count": 0}
 
-    def tracking_tts(source_path, output_path, tts_engine=None, alignment=False, speaker_voice_map=None):
+    def tracking_tts(
+        source_path,
+        output_path,
+        tts_engine=None,
+        alignment=False,
+        speaker_wav=None,
+        speaker_voice_map=None,
+    ):
         tts_called["count"] += 1
 
     monkeypatch.setattr("api.src.services.tts_service.tts_text_file_to_speech", tracking_tts)
@@ -111,7 +125,14 @@ def test_tts_runs_in_threadpool(client, monkeypatch, ui_dir):
 
     executor_used = {"yes": False}
 
-    def fake_tts(source_path, output_path, tts_engine=None, alignment=False, speaker_voice_map=None):
+    def fake_tts(
+        source_path,
+        output_path,
+        tts_engine=None,
+        alignment=False,
+        speaker_wav=None,
+        speaker_voice_map=None,
+    ):
         wav = pathlib.Path(output_path) / "Test Title.wav"
         wav.write_bytes(b"RIFF" + b"\x00" * 100)
 
@@ -132,3 +153,50 @@ def test_tts_rejects_invalid_config(client, monkeypatch, ui_dir):
     """Config param must match ^c-[0-9a-f]{7}$ to prevent path traversal."""
     resp = client.post("/api/tts/G3Eup4mfJdA?config=../../etc")
     assert resp.status_code == 422
+
+
+def test_tts_explicit_speaker_wav_overrides_voice_map(client, monkeypatch, ui_dir):
+    """An explicit speaker_wav query parameter is passed through as the clip voice."""
+    src = ui_dir / "translations" / "argos" / "Test Title.json"
+    src.write_text(json.dumps({
+        **_translated_transcript(),
+        "segments": [
+            {
+                "id": 0,
+                "start": 0.0,
+                "end": 2.5,
+                "text": " Hola mundo",
+                "speaker": "SPEAKER_00",
+            },
+        ],
+    }))
+
+    monkeypatch.setattr(
+        "api.src.routers.tts.resolve_title",
+        lambda video_id: "Test Title",
+    )
+
+    observed = {}
+
+    def fake_tts(
+        source_path,
+        output_path,
+        tts_engine=None,
+        alignment=False,
+        speaker_wav=None,
+        speaker_voice_map=None,
+    ):
+        observed["speaker_wav"] = speaker_wav
+        observed["speaker_voice_map"] = speaker_voice_map
+        wav = pathlib.Path(output_path) / "Test Title.wav"
+        wav.write_bytes(b"RIFF" + b"\x00" * 100)
+
+    monkeypatch.setattr("api.src.services.tts_service.tts_text_file_to_speech", fake_tts)
+
+    resp = client.post(
+        "/api/tts/G3Eup4mfJdA?config=c-0000000&speaker_wav=es/default.wav"
+    )
+
+    assert resp.status_code == 200
+    assert observed["speaker_wav"] == "es/default.wav"
+    assert observed["speaker_voice_map"] is None
