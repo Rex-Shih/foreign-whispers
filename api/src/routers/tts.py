@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 from api.src.core.config import settings
 from api.src.core.dependencies import resolve_title
 from api.src.services.tts_service import TTSService
+from foreign_whispers.voice_resolution import resolve_speaker_wav
 
 router = APIRouter(prefix="/api")
 
@@ -27,12 +28,16 @@ async def tts_endpoint(
     request: Request,
     config: str = Query(..., pattern=r"^c-[0-9a-f]{7}$"),
     alignment: bool = Query(False),
+    speaker_wav: str = Query(None, description="Reference voice WAV path (e.g. 'es/default.wav')"),
+
 ):
     """Generate TTS audio for a translated transcript.
 
     *config* is an opaque directory name for caching.
     *alignment* enables temporal alignment (clamped stretch).
     """
+    if speaker_wav is None:
+      speaker_wav = resolve_speaker_wav(settings.speakers_dir, "es")
     trans_dir = settings.translations_dir
     audio_dir = settings.tts_audio_dir / config
     audio_dir.mkdir(parents=True, exist_ok=True)
