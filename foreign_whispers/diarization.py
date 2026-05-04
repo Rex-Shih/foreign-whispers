@@ -26,23 +26,30 @@ def diarize_audio(audio_path: str, hf_token: str | None = None) -> list[dict]:
         return []
 
     try:
-        from pyannote.audio import Pipeline
         import torch
+    except ImportError:
+        logger.warning("torch not installed — returning empty diarization.")
+        return []
+
+    # PyTorch 2.6+ defaults torch.load(weights_only=True), which rejects
+    # trusted pyannote checkpoints that include small metadata objects. Patch
+    # before importing pyannote so dependencies cannot capture the old loader.
+    _original_torch_load = torch.load
+
+    @functools.wraps(_original_torch_load)
+    def _patched_load(*args, **kwargs):
+        kwargs.setdefault("weights_only", False)
+        return _original_torch_load(*args, **kwargs)
+
+    torch.load = _patched_load
+
+    try:
+        from pyannote.audio import Pipeline
     except (ImportError, TypeError):
         logger.warning("pyannote.audio not installed — returning empty diarization.")
         return []
 
     try:
-        # PyTorch 2.6+ defaults torch.load(weights_only=True), which rejects
-        # trusted pyannote checkpoints that include small metadata objects.
-        _original_torch_load = torch.load
-
-        @functools.wraps(_original_torch_load)
-        def _patched_load(*args, **kwargs):
-            kwargs.setdefault("weights_only", False)
-            return _original_torch_load(*args, **kwargs)
-
-        torch.load = _patched_load
         logger.warning("start loading diarization pipeline...")
         pipeline    = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
