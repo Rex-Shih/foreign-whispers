@@ -2,7 +2,6 @@
 
 import asyncio
 import functools
-import json
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -33,9 +32,9 @@ async def tts_endpoint(
 
     *config* is an opaque directory name for caching.
     *alignment* enables temporal alignment (clamped stretch).
-    *speaker_wav* forces one reference voice for the whole clip. If omitted,
-    diarized transcripts use per-speaker voices when available, otherwise the
-    target-language default voice is used.
+    *speaker_wav* is the default reference voice for the clip. If omitted,
+    it resolves to the target-language default voice. Diarized transcripts may
+    override it per segment via a speaker voice map.
     """
     trans_dir = settings.translations_dir
     audio_dir = settings.tts_audio_dir / config
@@ -61,13 +60,13 @@ async def tts_endpoint(
 
     source_path = str(trans_dir / f"{title}.json")
 
-    speaker_voice_map = None
+    speaker_wav_provided = speaker_wav is not None
     if speaker_wav is None:
-        translated = json.loads((trans_dir / f"{title}.json").read_text())
-        target_language = translated.get("language") or "es"
+        speaker_wav = resolve_speaker_wav(settings.speakers_dir, "es")
+
+    speaker_voice_map = None
+    if not speaker_wav_provided:
         speaker_voice_map = svc.build_round_robin_voice_map(source_path, settings.speakers_dir)
-        if not speaker_voice_map:
-            speaker_wav = resolve_speaker_wav(settings.speakers_dir, target_language)
 
     await _run_in_threadpool(
         None,

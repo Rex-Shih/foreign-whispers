@@ -420,11 +420,12 @@ def text_file_to_speech(
     *alignment* overrides the module-level ``_ALIGNMENT_ENABLED`` flag.
     Pass True for aligned mode, False for baseline, or None to use the env var.
 
-    *speaker_wav* is a single Chatterbox reference WAV path to use for all
-    segments, relative to ``pipeline_data/speakers``.
+    *speaker_wav* is the default Chatterbox reference WAV path, relative to
+    ``pipeline_data/speakers``.
 
     *speaker_voice_map* maps transcript speaker labels to Chatterbox reference
-    WAV paths relative to ``pipeline_data/speakers``.
+    WAV paths relative to ``pipeline_data/speakers``. When a segment speaker is
+    present in the map, that per-segment voice overrides ``speaker_wav``.
     """
     engine = tts_engine if tts_engine is not None else _get_tts_engine()
     use_alignment = alignment if alignment is not None else _ALIGNMENT_ENABLED
@@ -480,7 +481,7 @@ def text_file_to_speech(
             "index": i,
             "text": seg_text,
             "speaker": seg.get("speaker"),
-            "speaker_wav": speaker_wav or (speaker_voice_map or {}).get(seg.get("speaker")),
+            "speaker_wav": (speaker_voice_map or {}).get(seg.get("speaker")) or speaker_wav,
             "start": seg["start"],
             "end": seg["end"],
             "target_sec": target_sec,

@@ -155,8 +155,8 @@ def test_tts_rejects_invalid_config(client, monkeypatch, ui_dir):
     assert resp.status_code == 422
 
 
-def test_tts_explicit_speaker_wav_overrides_voice_map(client, monkeypatch, ui_dir):
-    """An explicit speaker_wav query parameter is passed through as the clip voice."""
+def test_tts_explicit_speaker_wav_is_passed_through(client, monkeypatch, ui_dir):
+    """An explicit speaker_wav query parameter is passed through to TTS."""
     src = ui_dir / "translations" / "argos" / "Test Title.json"
     src.write_text(json.dumps({
         **_translated_transcript(),
