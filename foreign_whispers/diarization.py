@@ -9,6 +9,7 @@ and providing an HF token.  Returns empty list with a warning if the dep is
 absent or the token is missing.
 """
 import logging
+import functools
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +27,22 @@ def diarize_audio(audio_path: str, hf_token: str | None = None) -> list[dict]:
 
     try:
         from pyannote.audio import Pipeline
+        import torch
     except (ImportError, TypeError):
         logger.warning("pyannote.audio not installed — returning empty diarization.")
         return []
 
     try:
+        # PyTorch 2.6+ defaults torch.load(weights_only=True), which rejects
+        # trusted pyannote checkpoints that include small metadata objects.
+        _original_torch_load = torch.load
+
+        @functools.wraps(_original_torch_load)
+        def _patched_load(*args, **kwargs):
+            kwargs.setdefault("weights_only", False)
+            return _original_torch_load(*args, **kwargs)
+
+        torch.load = _patched_load
         logger.warning("start loading diarization pipeline...")
         pipeline    = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
